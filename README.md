@@ -1,72 +1,103 @@
 # HTTP Retry Logic
 
-Makes HTTP requests with retry logic and exponential backoff.
+Retries HTTP requests with exponential backoff.
 
-## Features
+## Original (While Loop)
 
-- 4 total attempts (1 initial + 3 retries)
-- Exponential backoff: 500ms → 1000ms → 2000ms → 2000ms (capped at 2s)
-- 5-second timeout protection
-- Recursive implementation
+```javascript
+async function getAvodahChallenge() {
+  const result = await fetch("http://localhost:8080");
 
-## Usage
+  if (result.status === 200) {
+    const resultJson = await result.json();
+    console.log("Request succeeded", resultJson.date);
+    return;
+  } else {
+    let counter = 0;
+    console.log("Debug entered ELSE =>");
 
-```bash
-npm test          # Run tests
-node index.js     # Run the retry logic
+    let delayTime = 500;
+    while (counter < 3) {
+      await delay(delayTime);
+      const result = await fetch("http://localhost:8080");
+
+      if (result.status === 200) {
+        const resultJson = await result.json();
+        console.log("Request succeeded", resultJson.date);
+        return;
+      }
+
+      delayTime = delayTime * 2;
+      counter++;
+    }
+    console.log("Request failed", result);
+  }
+}
 ```
 
-## Implementation
+## Enhanced (Recursive + Timeout)
+
+- Recursive instead of while loop
+- 5-second timeout per request (prevents hanging)
+- Modular code with separated concerns
+- Proper delay capping at 2000ms
 
 ```javascript
 export async function getAvodahChallenge(attempt = 1, maxAttempts = 4) {
-  const delayTime = Math.min(500 * Math.pow(2, attempt - 1), 2000);
+  // Calculate delay with exponential backoff, capped at 2000ms
+  const delayTime = Math.min(500 * Math.pow(2, attempt - 1), 2000)
 
   try {
-    const result = await apiRequest();
-    if (result === true) return;
+    const result = await apiRequest()
+    if(result === true) return // Success - exit recursion
 
-    if (attempt === 1) {
-      console.log("Debug entered ELSE =>");
+    if(attempt === 1) {
+      console.log('Debug entered ELSE =>')
     }
 
-    if (attempt >= maxAttempts) {
-      console.log("Request failed", result);
+    // Stop after max attempts reached
+    if(attempt >= maxAttempts) {
+      console.log('Request failed', result);
       return;
     }
 
-    await delay(delayTime);
-    return getAvodahChallenge(attempt + 1, maxAttempts);
+    await delay(delayTime) // Wait before retry
+    return getAvodahChallenge(attempt + 1, maxAttempts) // Recursive call
   } catch (error) {
-    throw new Error("An error occurred", error);
+    throw new Error('An error occurred', error)
   }
 }
 
 export async function apiRequest() {
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 5000);
+  // Setup 5-second timeout to prevent hanging requests
+  const controller = new AbortController()
+  const timeoutId = setTimeout(() => controller.abort(), 5000)
 
   try {
-    const result = await fetch("http://localhost:8080", {
-      signal: controller.signal,
-    });
-    clearTimeout(timeoutId);
+    const result = await fetch('http://localhost:8080', {
+      signal: controller.signal // Enable request cancellation
+    })
+    clearTimeout(timeoutId)
 
-    if (result.status === 200) {
-      const resultJson = await result.json();
-      console.log("Request succeeded", resultJson.date);
-      return true;
+    if(result.status === 200) {
+      const resultJson = await result.json()
+      console.log('Request succeeded', resultJson.date)
+      return true
     }
-    return result;
+    return result // Return failed response for logging
   } catch (error) {
-    clearTimeout(timeoutId);
-    throw error;
+    clearTimeout(timeoutId)
+    throw error
   }
 }
 ```
 
+```bash
+npm test
+node index.js
+```
+
 ## Tests
 
-- ✅ Success on first try
-- ✅ Failure after all attempts
-- ✅ Proper retry timing and limits
+- Success on first try
+- Failure after all attempts
