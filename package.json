@@ -1,0 +1,14 @@
+{
+  "name": "avodah-retry-logic",
+  "version": "1.0.0",
+  "description": "Recursive retry logic with timeout protection",
+  "main": "index.js",
+  "scripts": {
+    "test": "node --test",
+    "test:watch": "node --test --watch"
+  },
+  "type": "module",
+  "keywords": ["retry", "recursive", "timeout", "fetch"],
+  "author": "Your Name",
+  "license": "MIT"
+}
